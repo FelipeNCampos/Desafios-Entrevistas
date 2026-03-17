@@ -19,6 +19,9 @@ LOGGER = get_logger(__name__)
 
 @dataclass(slots=True)
 class IntegrationContext:
+    integrations_enabled: bool
+    skip_drive_upload: bool
+    skip_email_notification: bool
     google_drive_folder_id: str | None
     google_sheet_id: str | None
     google_sheet_title: str | None
@@ -41,6 +44,12 @@ class IntegrationContext:
 def load_integration_context() -> IntegrationContext:
     """Load integration credentials and destinations from the environment."""
     context = IntegrationContext(
+        integrations_enabled=os.getenv("INTEGRATIONS_ENABLED", "true").strip().lower()
+        in {"1", "true", "yes", "on"},
+        skip_drive_upload=os.getenv("SKIP_DRIVE_UPLOAD", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
+        skip_email_notification=os.getenv("SKIP_EMAIL_NOTIFICATION", "false").strip().lower()
+        in {"1", "true", "yes", "on"},
         google_drive_folder_id=os.getenv("GOOGLE_DRIVE_FOLDER_ID"),
         google_sheet_id=os.getenv("GOOGLE_SHEET_ID"),
         google_sheet_title=os.getenv("GOOGLE_SHEET_TITLE"),
@@ -67,6 +76,8 @@ def load_integration_context() -> IntegrationContext:
 def notifications_enabled(context: IntegrationContext | None = None) -> bool:
     """Check whether email notifications are fully configured."""
     active_context = context or load_integration_context()
+    if not active_context.integrations_enabled:
+        return False
     return all(
         [
             active_context.smtp_host,
@@ -79,6 +90,8 @@ def notifications_enabled(context: IntegrationContext | None = None) -> bool:
 def sheets_enabled(context: IntegrationContext | None = None) -> bool:
     """Check whether Google Sheets integration is configured."""
     active_context = context or load_integration_context()
+    if not active_context.integrations_enabled:
+        return False
     return bool(
         active_context.google_oauth_client_secret_file
         or active_context.google_oauth_client_secret_json
@@ -90,6 +103,8 @@ def sheets_enabled(context: IntegrationContext | None = None) -> bool:
 def google_oauth_enabled(context: IntegrationContext | None = None) -> bool:
     """Check whether Google OAuth client credentials are configured."""
     active_context = context or load_integration_context()
+    if not active_context.integrations_enabled:
+        return False
     return bool(
         active_context.google_oauth_client_secret_file
         or active_context.google_oauth_client_secret_json
@@ -99,6 +114,8 @@ def google_oauth_enabled(context: IntegrationContext | None = None) -> bool:
 def google_service_account_enabled(context: IntegrationContext | None = None) -> bool:
     """Check whether Google service account credentials are configured."""
     active_context = context or load_integration_context()
+    if not active_context.integrations_enabled:
+        return False
     return bool(
         active_context.google_service_account_file
         or active_context.google_service_account_json

@@ -68,6 +68,10 @@ def send_notification_email(
     attachment_path: str | Path | None = None,
 ) -> None:
     """Send the automation result to the configured email address."""
+    context = load_integration_context()
+    if context.skip_email_notification:
+        LOGGER.info("Email notification skipped (SKIP_EMAIL_NOTIFICATION=true)")
+        return
     if int(result.get("quantidade_resultados") or 0) <= 0:
         LOGGER.info("Email notification skipped because the execution returned no results")
         return

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -95,11 +95,16 @@ def create_execution(request: ExecutionRequest) -> ExecutionResponse:
             detail="Falha ao executar a automacao.",
         ) from exc
 
+    summary_raw = execution_result.get("summary")
+    payload_raw = execution_result.get("payload")
+    summary = cast(dict[str, Any], summary_raw) if isinstance(summary_raw, dict) else {}
+    payload = cast(dict[str, Any], payload_raw) if isinstance(payload_raw, dict) else None
+
     return ExecutionResponse(
         termo=request.termo,
         execution_dir=str(execution_result["execution_dir"]),
         json_path=str(execution_result["json_path"]),
-        summary=dict(execution_result["summary"]),
+        summary=summary,
         base64=str(execution_result["base64"]) if request.include_base64 else None,
-        payload=dict(execution_result["payload"]) if request.include_payload else None,
+        payload=payload if request.include_payload else None,
     )

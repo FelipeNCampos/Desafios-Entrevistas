@@ -21,6 +21,9 @@ LOGGER = get_logger(__name__)
 def upload_execution_artifacts(summary: dict[str, object]) -> dict[str, object] | None:
     """Upload execution artifacts to Google Drive and enrich the summary with folder links."""
     context = load_integration_context()
+    if context.skip_drive_upload:
+        LOGGER.info("Google Drive upload skipped (SKIP_DRIVE_UPLOAD=true)")
+        return None
     if not sheets_enabled(context):
         LOGGER.info("Google Drive upload skipped because Google credentials are not configured")
         return None

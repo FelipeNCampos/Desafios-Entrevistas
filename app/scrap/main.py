@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -97,9 +97,13 @@ def collect_result_links(
     max_results: int | None = None,
 ) -> list[dict[str, str]]:
     """Collect all unique result links across the paginated results list."""
-    WebDriverWait(driver, timeout).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, RESULT_CONTAINER_SELECTOR))
-    )
+    try:
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, RESULT_CONTAINER_SELECTOR))
+        )
+    except TimeoutException:
+        LOGGER.info("Results container not found within %ss; returning no links", timeout)
+        return []
 
     effective_max_results = max(max_results or 0, 0)
     collected: list[dict[str, str]] = []
@@ -107,9 +111,29 @@ def collect_result_links(
     page_number = 1
 
     while True:
-        WebDriverWait(driver, timeout).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, RESULT_LINK_SELECTOR))
-        )
+        try:
+            WebDriverWait(driver, timeout).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, RESULT_LINK_SELECTOR))
+            )
+        except TimeoutException:
+            feedback_messages = [
+                _clean_text(element.text)
+                for element in driver.find_elements(By.CSS_SELECTOR, ".feedback-warning, .feedback-danger")
+                if _clean_text(element.text)
+            ]
+            if feedback_messages:
+                LOGGER.info(
+                    "No result links rendered within %ss. Portal feedback: %s",
+                    timeout,
+                    " | ".join(feedback_messages),
+                )
+            else:
+                LOGGER.info(
+                    "No result links rendered within %ss on page %s; finishing collection",
+                    timeout,
+                    page_number,
+                )
+            return collected
         current_signature = _result_page_signature(driver)
         page_links = driver.find_elements(By.CSS_SELECTOR, RESULT_LINK_SELECTOR)
         page_added = 0
@@ -347,7 +371,11 @@ def scrape_result_pages(
     """Collect result links first, then process each result concurrently."""
     settings = get_driver_settings(driver)
     effective_max_results = settings.max_results if max_results is None else max(max_results, 0)
-    results = collect_result_links(driver, timeout=timeout, max_results=effective_max_results)
+    try:
+        results = collect_result_links(driver, timeout=timeout, max_results=effective_max_results)
+    except TimeoutException:
+        LOGGER.info("Result-link collection timed out; continuing with no extracted results")
+        return []
     if not results:
         return []
 

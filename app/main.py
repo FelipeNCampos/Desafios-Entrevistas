@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime
 import sys
 from pathlib import Path
+import time
 
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -44,6 +45,7 @@ def _run_execution(
     max_results: int | None = None,
 ) -> dict[str, object]:
     """Execute the automation flow and return structured metadata."""
+    t_start = time.perf_counter()
     settings = load_settings()
     driver = create_driver(settings)
     execution_dir = _create_execution_dir(output_path)
@@ -73,12 +75,27 @@ def _run_execution(
         else:
             LOGGER.info("No result links found for the current search")
 
+        t_scrape_done = time.perf_counter()
+        LOGGER.info("Scraping completed in %.2fs", t_scrape_done - t_start)
+        
         json_path = save_execution_json(execution_payload, execution_dir)
+        t_json = time.perf_counter()
+        LOGGER.info("JSON saved in %.2fs", t_json - t_scrape_done)
+        
         execution_summary = build_execution_summary(execution_payload, execution_dir)
+        t_summary = time.perf_counter()
+        LOGGER.info("Summary built in %.2fs", t_summary - t_json)
+        
         drive_result = upload_execution_artifacts(execution_summary)
+        t_drive = time.perf_counter()
+        LOGGER.info("Drive upload completed in %.2fs", t_drive - t_summary)
+        
         if drive_result and drive_result.get("execution_folder_url"):
             execution_summary["drive_folder_url"] = drive_result["execution_folder_url"]
         sheet_result = sync_execution_to_sheet(execution_summary)
+        t_sheets = time.perf_counter()
+        LOGGER.info("Sheets sync completed in %.2fs", t_sheets - t_drive)
+        
         if sheet_result and sheet_result.get("spreadsheet_url"):
             execution_summary["planilha_url"] = sheet_result["spreadsheet_url"]
             execution_summary["planilha_id"] = sheet_result["spreadsheet_id"]
@@ -88,7 +105,13 @@ def _run_execution(
             subject=f"Resultado da automacao - {termo}",
             attachment_path=json_path,
         )
+        t_email = time.perf_counter()
+        LOGGER.info("Email sent in %.2fs", t_email - t_sheets)
+        
         LOGGER.info("Base64 gerado com %s caracteres", len(image_base64))
+        t_total = time.perf_counter()
+        LOGGER.info("Total execution time: %.2fs", t_total - t_start)
+        
         return {
             "base64": image_base64,
             "execution_dir": str(execution_dir),

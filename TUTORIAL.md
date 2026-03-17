@@ -60,11 +60,17 @@ Configuracoes recomendadas para primeira execucao:
 ```env
 SELENIUM_HEADLESS=false
 PORTAL_MAX_RESULTS=1
+INTEGRATIONS_ENABLED=false
+SKIP_DRIVE_UPLOAD=false
+SKIP_EMAIL_NOTIFICATION=false
 ```
 
 Explicacao rapida:
 - `SELENIUM_HEADLESS=false`: abre o Chrome visivelmente para facilitar debug.
 - `PORTAL_MAX_RESULTS=1`: processa apenas 1 resultado para testar mais rapido.
+- `INTEGRATIONS_ENABLED=false`: desliga Google Drive/Sheets e e-mail para acelerar testes locais.
+- `SKIP_DRIVE_UPLOAD=false`: quando false (padrao), faz upload para Drive. Use `true` para pular.
+- `SKIP_EMAIL_NOTIFICATION=false`: quando false (padrao), envia e-mail. Use `true` para pular.
 
 ## 6. Rodar a API (forma mais pratica)
 
@@ -150,14 +156,40 @@ SMTP_USE_TLS=true
 	- Confira credenciais no `.env`.
 	- Verifique permissoes da API Google Drive/Sheets no projeto GCP.
 
-## 11. Checklist rapido
+## 11. Performance e Benchmarks
 
-1. Python instalado
-2. Chrome instalado
-3. `venv` criado e ativo
-4. `pip install -r requirements.txt`
-5. `.env` criado a partir de `.env.example`
-6. `uvicorn app.api:app --host 0.0.0.0 --port 8000`
-7. Teste em `http://127.0.0.1:8000/docs`
+### Tempo de execucao tipico
 
-Com esse passo a passo, o projeto ja roda localmente.
+Em testes reais com **22 resultados**:
+
+```
+Scraping paralelo:        35.0s  ← coleta de dados em paralelo (10 workers)
+JSON save:                 0.0s
+Google Drive upload:      73.7s  ← gargalo (upload sequencial de 22 pastas)
+Google Sheets sync:        1.7s
+Email SMTP:               33.6s  ← segunda demora (latencia de rede/SMTP)
+TOTAL:                   143.9s  (~2.4 minutos)
+```
+
+### Como acelerar para testes locais
+
+Se voce quer velocidade maxima durante desenvolvimento, desabilite as integrações lentas no `.env`:
+
+```env
+SKIP_DRIVE_UPLOAD=true
+SKIP_EMAIL_NOTIFICATION=true
+```
+
+Com isso, a execução cai para **~40 segundos** (apenas scraping).
+
+### Como testar modo rapido com INTEGRATIONS_ENABLED=false
+
+Se nao quer nem carregar credenciais Google:
+
+```env
+INTEGRATIONS_ENABLED=false
+SKIP_DRIVE_UPLOAD=true
+SKIP_EMAIL_NOTIFICATION=true
+```
+
+Resultado: ~40s para coleta de dados, sem tentar conectar ao Google/SMTP.
