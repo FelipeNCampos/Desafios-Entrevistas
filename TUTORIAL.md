@@ -91,9 +91,7 @@ http://127.0.0.1:8000/docs
 Em outro terminal PowerShell (com o `venv` ativo):
 
 ```powershell
-curl -X POST "http://127.0.0.1:8000/executions" ^
-  -H "Content-Type: application/json" ^
-  -d "{\"termo\":\"maria\",\"filtros\":[\"beneficiarioProgramaSocial\"],\"include_base64\":false}"
+curl.exe --% -X POST http://127.0.0.1:8000/executions -H "Content-Type: application/json" -d "{\"termo\":\"maria\",\"filtros\":[\"beneficiarioProgramaSocial\"],\"max_results\":50,\"include_base64\":false}"
 ```
 
 Os artefatos serao salvos em `artifacts/`.
